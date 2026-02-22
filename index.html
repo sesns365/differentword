@@ -112,6 +112,14 @@
 
                     <div id="settings-panel" class="opacity-40 transition-opacity duration-300">
                         <p class="text-center text-lg font-medium text-slate-700 mb-2">第二步：設定並開始</p>
+                        
+                        <div class="flex justify-center mb-4">
+                            <div class="flex items-center gap-2">
+                                <label for="challenger-name" class="text-slate-700 whitespace-nowrap">挑戰者名字(選填):</label>
+                                <input type="text" id="challenger-name" class="w-full max-w-[150px] text-center p-2 border-2 border-slate-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 transition" placeholder="您的名字" disabled>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                             <div class="flex items-center gap-2 justify-center">
                                 <label for="countdown" class="text-slate-700 whitespace-nowrap">顯示時間(秒):</label>
@@ -159,9 +167,14 @@
                     <p class="text-xl text-slate-600 mb-2">正確率</p>
                     <p id="accuracy" class="text-5xl font-bold text-green-500">50%</p>
                 </div>
-                <button id="restart-btn" class="w-full max-w-xs mx-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition-transform transform hover:scale-105 shadow-md">
-                    重新開始
-                </button>
+                <div class="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+                    <button id="restart-btn" class="w-full flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition-transform transform hover:scale-105 shadow-md">
+                        重新開始
+                    </button>
+                    <button id="download-btn" class="w-full flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition-transform transform hover:scale-105 shadow-md">
+                        下載成績
+                    </button>
+                </div>
             </div>
 
         </div>
@@ -189,8 +202,10 @@
         const restartBtn = document.getElementById('restart-btn');
         const nextQuestionBtn = document.getElementById('next-question-btn');
         const viewToggleBtn = document.getElementById('view-toggle-btn');
+        const downloadBtn = document.getElementById('download-btn');
         
         const vocabInput = document.getElementById('vocab-input');
+        const challengerNameInput = document.getElementById('challenger-name');
         const countdownInput = document.getElementById('countdown');
         const itemCountInput = document.getElementById('item-count');
         const totalQuestionsInput = document.getElementById('total-questions');
@@ -369,6 +384,7 @@
         let gameActive = false;
         let audioContext;
         let roundTimeoutId = null;
+        let countdownIntervalId = null; // 新增：用於清除倒數計時器
 
         let totalQuestions = 0;
         let currentQuestionIndex = 0;
@@ -476,6 +492,7 @@
             itemCountInput.value = newMax; 
             
             settingsPanel.classList.remove('opacity-40');
+            challengerNameInput.disabled = false;
             countdownInput.disabled = false;
             itemCountInput.disabled = false;
             totalQuestionsInput.disabled = false;
@@ -496,6 +513,7 @@
             confirmVocabBtn.textContent = '確認生字';
             resetVocabBtn.classList.add('hidden');
             settingsPanel.classList.add('opacity-40');
+            challengerNameInput.disabled = true;
             countdownInput.disabled = true;
             itemCountInput.disabled = true;
             totalQuestionsInput.disabled = true;
@@ -531,7 +549,11 @@
         }
 
         function nextQuestion() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // 終止目前的報讀
+            }
             clearTimeout(roundTimeoutId);
+            clearInterval(countdownIntervalId); // 新增：清除之前的倒數
             nextQuestionBtn.classList.add('hidden'); 
             viewToggleBtn.classList.add('hidden');
             abortBtn.classList.remove('hidden');
@@ -544,7 +566,6 @@
             gameActive = true;
             changedIndex = -1;
             progressEl.textContent = `第 ${currentQuestionIndex} / ${totalQuestions} 題`;
-            messageEl.innerHTML = '請記住所有生字...';
             messageEl.classList.remove('text-red-500', 'text-green-500');
 
 
@@ -555,8 +576,24 @@
             const shuffledChars = shuffle([...CHARACTER_POOL]);
             originalCharacters = shuffledChars.slice(0, itemCount);
             renderBoard(originalCharacters, false);
-            const countdownTime = parseInt(countdownInput.value, 10) * 1000;
-            roundTimeoutId = setTimeout(prepareToChange, countdownTime);
+            
+            // 新增：顯示倒數計時邏疑
+            let timeLeft = parseInt(countdownInput.value, 10);
+            messageEl.innerHTML = `請記住所有生字... <span class="text-blue-500 font-bold">(${timeLeft}秒)</span>`;
+            
+            countdownIntervalId = setInterval(() => {
+                if (!gameActive) {
+                    clearInterval(countdownIntervalId);
+                    return;
+                }
+                timeLeft--;
+                if (timeLeft > 0) {
+                    messageEl.innerHTML = `請記住所有生字... <span class="text-blue-500 font-bold">(${timeLeft}秒)</span>`;
+                } else {
+                    clearInterval(countdownIntervalId);
+                    prepareToChange();
+                }
+            }, 1000);
         }
         
         function prepareToChange() {
@@ -655,11 +692,50 @@
             accuracyEl.textContent = `${accuracy.toFixed(0)}%`;
         }
 
+        function downloadResults() {
+            const date = new Date().toLocaleString('zh-TW');
+            const accuracy = totalQuestions > 0 ? (correctAnswersCount / totalQuestions) * 100 : 0;
+            const challengerName = challengerNameInput.value.trim();
+            const nameStr = challengerName ? `挑戰者：${challengerName}\n` : '';
+            
+            const textContent = `生字不一樣 - 測驗成績\n\n` +
+                                nameStr +
+                                `測驗時間：${date}\n` +
+                                `顯示時間：${countdownInput.value} 秒\n` +
+                                `顯示字數：${itemCountInput.value} 字\n` +
+                                `測驗題數：${totalQuestions} 題\n` +
+                                `----------------------\n` +
+                                `答對題數：${correctAnswersCount} / ${totalQuestions}\n` +
+                                `正確率：${accuracy.toFixed(0)}%\n` +
+                                `----------------------\n` +
+                                `測驗生字庫：\n${vocabInput.value}\n`;
+
+            const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // 產生包含時間的檔名
+            const now = new Date();
+            const timeStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
+            a.download = `生字測驗成績_${timeStr}.txt`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
         function resetToInitialState() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // 中斷遊戲時也終止報讀
+            }
             clearTimeout(roundTimeoutId);
+            clearInterval(countdownIntervalId); // 新增：中斷遊戲時清除倒數
             gameActive = false;
             resetVocabInput();
             vocabInput.value = '';
+            challengerNameInput.value = ''; // 清空挑戰者名字
             resultsScreen.classList.add('hidden');
             gameScreen.classList.add('hidden');
             setupScreen.classList.remove('hidden');
@@ -734,6 +810,7 @@
         abortBtn.addEventListener('click', resetToInitialState);
         nextQuestionBtn.addEventListener('click', nextQuestion);
         viewToggleBtn.addEventListener('click', toggleView);
+        downloadBtn.addEventListener('click', downloadResults);
 
         itemCountInput.addEventListener('input', () => {
             const max = parseInt(itemCountInput.max);
