@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>生字不一樣</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            -webkit-touch-callout: none; /* iOS Safari */
+            -webkit-user-select: none; /* Safari */
+            -khtml-user-select: none; /* Konqueror HTML */
+            -moz-user-select: none; /* Old versions of Firefox */
+            -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently supported by Chrome, Edge, Opera and Firefox */
+        }
+        .shake {
+            animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            transform: translate3d(0, 0, 0);
+        }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, outline 0.1s ease-in-out;
+            font-weight: 700;
+        }
+        .card:hover {
+            transform: scale(1.05);
+        }
+        #overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        .correct-answer-glow {
+            animation: glow-green 1.5s infinite alternate;
+        }
+        @keyframes glow-green {
+            from {
+                outline: 4px solid #22c55e;
+                box-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e;
+            }
+            to {
+                outline: 4px solid #86efac;
+                box-shadow: 0 0 20px #22c55e, 0 0 30px #86efac;
+            }
+        }
+        .original-position-glow {
+             animation: glow-blue 1.5s infinite alternate;
+        }
+        @keyframes glow-blue {
+            from {
+                outline: 4px solid #3b82f6;
+                box-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6;
+            }
+            to {
+                outline: 4px solid #93c5fd;
+                box-shadow: 0 0 20px #3b82f6, 0 0 30px #93c5fd;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-100">
+    <div class="min-h-screen flex flex-col p-4 justify-center items-center">
+        <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8 relative overflow-hidden w-full max-w-5xl">
+            
+            <!-- 設定畫面 -->
+            <div id="setup-screen">
+                <h1 class="text-3xl md:text-4xl font-bold text-center text-slate-800 mb-2">生字不一樣</h1>
+                <p class="text-center text-slate-500 mb-6">請選擇課程或自訂生字，記住後找出改變的那一個！</p>
+                
+                <div class="max-w-4xl mx-auto">
+                    <!-- 預設課程選擇 -->
+                    <div class="mb-4 p-4 border rounded-lg bg-slate-50">
+                        <p class="text-lg font-medium text-slate-700 mb-3 text-center">快速選擇課程</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                            <select id="publisher-select" class="p-2 border-2 border-slate-300 rounded-lg w-full"></select>
+                            <select id="grade-select" class="p-2 border-2 border-slate-300 rounded-lg w-full"></select>
+                            <select id="semester-select" class="p-2 border-2 border-slate-300 rounded-lg w-full"></select>
+                            <select id="lesson-select" class="p-2 border-2 border-slate-300 rounded-lg w-full col-span-2 sm:col-span-1"></select>
+                            <button id="load-lesson-btn" class="bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg text-base shadow-md w-full col-span-2 sm:col-span-1">載入課程生字</button>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center my-6">
+                        <div class="flex-grow border-t border-gray-300"></div>
+                        <span class="flex-shrink mx-4 text-gray-500 font-bold">或</span>
+                        <div class="flex-grow border-t border-gray-300"></div>
+                    </div>
+                    
+                    <!-- 生字輸入區 -->
+                    <div class="mb-4">
+                        <label for="vocab-input" class="block text-lg font-medium text-slate-700 mb-2 text-center">第一步：自訂或貼上本課生字</label>
+                        <textarea id="vocab-input" rows="4" class="w-full p-3 border-2 border-slate-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 transition text-lg" placeholder="可從上方載入，或在此輸入生字，用空格、逗號、或換行分隔..."></textarea>
+                    </div>
+                     <div class="text-center mb-6 flex justify-center items-center gap-4">
+                        <button id="confirm-vocab-btn" class="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-8 rounded-lg text-lg transition-transform transform hover:scale-105 shadow-md">確認生字</button>
+                        <button id="reset-vocab-btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-8 rounded-lg text-lg transition-transform transform hover:scale-105 shadow-md">重新輸入</button>
+                    </div>
+
+                    <div id="settings-panel" class="opacity-40 transition-opacity duration-300">
+                        <p class="text-center text-lg font-medium text-slate-700 mb-2">第二步：設定並開始</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                            <div class="flex items-center gap-2 justify-center">
+                                <label for="countdown" class="text-slate-700 whitespace-nowrap">顯示時間(秒):</label>
+                                <input type="number" id="countdown" value="3" min="1" max="10" class="w-full max-w-[100px] text-center p-2 border-2 border-slate-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 transition" disabled>
+                            </div>
+                            <div class="flex items-center gap-2 justify-center">
+                                <label for="item-count" class="text-slate-700 whitespace-nowrap">顯示字數:</label>
+                                <input type="number" id="item-count" value="9" min="2" max="25" class="w-full max-w-[100px] text-center p-2 border-2 border-slate-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 transition" disabled>
+                            </div>
+                            <div class="flex items-center gap-2 justify-center">
+                                <label for="total-questions" class="text-slate-700 whitespace-nowrap">測驗題數:</label>
+                                <input type="number" id="total-questions" value="5" min="1" max="50" class="w-full max-w-[100px] text-center p-2 border-2 border-slate-300 rounded-lg focus:border-blue-500 focus:ring-blue-500 transition" disabled>
+                            </div>
+                        </div>
+                        <div>
+                             <button id="start-btn" class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition-transform transform hover:scale-105 shadow-md cursor-not-allowed" disabled>
+                                開始測驗
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 遊戲畫面 -->
+            <div id="game-screen" class="hidden">
+                <div id="progress" class="text-center text-xl font-bold text-slate-600 mb-2"></div>
+                <div id="message" class="text-center text-2xl font-semibold text-slate-700 my-4 h-8 leading-tight"></div>
+                <div id="game-container" class="relative max-w-md mx-auto aspect-square">
+                    <div id="game-board" class="w-full h-full"></div>
+                    <div id="overlay" class="absolute inset-0 bg-black rounded-lg flex items-center justify-center text-white text-3xl font-bold opacity-0 pointer-events-none">準備中...</div>
+                </div>
+                 <div id="game-controls" class="mt-6 text-center space-x-4">
+                    <button id="view-toggle-btn" class="hidden bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-6 rounded-lg transition-transform transform hover:scale-105 shadow-md">查看原圖</button>
+                    <button id="next-question-btn" class="hidden bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-6 rounded-lg transition-transform transform hover:scale-105 shadow-md">下一題</button>
+                    <button id="abort-btn" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-6 rounded-lg transition-transform transform hover:scale-105 shadow-md">結束測驗</button>
+                </div>
+            </div>
+
+            <!-- 結果畫面 -->
+            <div id="results-screen" class="hidden text-center">
+                <h2 class="text-3xl font-bold text-slate-800 mb-4">測驗結束！</h2>
+                <div class="bg-slate-100 rounded-lg p-6 mb-6 max-w-md mx-auto">
+                    <p class="text-xl text-slate-600 mb-2">答對題數</p>
+                    <p id="score" class="text-5xl font-bold text-blue-500 mb-4">5 / 10</p>
+                    <p class="text-xl text-slate-600 mb-2">正確率</p>
+                    <p id="accuracy" class="text-5xl font-bold text-green-500">50%</p>
+                </div>
+                <button id="restart-btn" class="w-full max-w-xs mx-auto bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg text-xl transition-transform transform hover:scale-105 shadow-md">
+                    重新開始
+                </button>
+            </div>
+
+        </div>
+        <footer class="text-center mt-6 text-slate-500 flex-shrink-0">
+            <p>由特工365製作</p>
+        </footer>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const setupScreen = document.getElementById('setup-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const resultsScreen = document.getElementById('results-screen');
+
+        const publisherSelect = document.getElementById('publisher-select');
+        const gradeSelect = document.getElementById('grade-select');
+        const semesterSelect = document.getElementById('semester-select');
+        const lessonSelect = document.getElementById('lesson-select');
+        const loadLessonBtn = document.getElementById('load-lesson-btn');
+
+        const confirmVocabBtn = document.getElementById('confirm-vocab-btn');
+        const resetVocabBtn = document.getElementById('reset-vocab-btn');
+        const startBtn = document.getElementById('start-btn');
+        const abortBtn = document.getElementById('abort-btn');
+        const restartBtn = document.getElementById('restart-btn');
+        const nextQuestionBtn = document.getElementById('next-question-btn');
+        const viewToggleBtn = document.getElementById('view-toggle-btn');
+        
+        const vocabInput = document.getElementById('vocab-input');
+        const countdownInput = document.getElementById('countdown');
+        const itemCountInput = document.getElementById('item-count');
+        const totalQuestionsInput = document.getElementById('total-questions');
+        const settingsPanel = document.getElementById('settings-panel');
+
+        const gameBoard = document.getElementById('game-board');
+        const messageEl = document.getElementById('message');
+        const progressEl = document.getElementById('progress');
+        const overlay = document.getElementById('overlay');
+
+        const scoreEl = document.getElementById('score');
+        const accuracyEl = document.getElementById('accuracy');
+
+        // --- Vocabulary Data ---
+        const vocabData = {
+            "南一": {
+                "一年級": {
+                    "上學期": {
+                        "第一課": "小上走左右向魚也來加".split(''), "第二課": "開出招車子地花朵在笑".split(''), "第三課": "泡玩大起好多我的你抱".split(''), "第四課": "爸到青叫下那和要他朋友".split(''), "第五課": "外住個們這裡有沒是什麼".split(''), "第六課": "金說句話兩都悄尾巴滿紅".split(''), "第七課": "春貼呢了請天家把不房福".split('')
+                    },
+                    "下學期": {
+                        "第一課": "太充電雨過後為冬土草冒哭心".split(''), "第二課": "顏色細著問鳥綠看藍空媽彩中虹".split(''), "第三課": "音樂會坡忙布場入口河林間風跑".split(''), "第四課": "書打跳陪去險海找歡神奇猜次誰跟".split(''), "第五課": "喜帶氣球始吹突然得高樹給可理只".split(''), "第六課": "居孩常躲發現就頭回想但怎知道先".split(''), "第七課": "畫愛送寫祝張臉感謝老師啊還漂亮".split(''), "第八課": "卡片秋採果吃飽方埋進很久嗎長敬".split(''), "第九課": "奶貝早校園工作她邊汗學您樣當成".split(''), "第十課": "井隻除睡覺東西拍肚唉幾世界連裝".split(''), "第十一課": "星面許池圈波紋見快告訴光拉怪呀".split(''), "第十二課": "止半羊田再瓜苗辛苦油能收甜分享".split('')
+                    }
+                },
+                "二年級": {
+                    "上學期": {
+                        "第一課": "呼白雲柔前游噴美麗柱試吸用力哇又第功".split(''), "第二課": "爬梯紙條線像身生迫及待站沿頂格哪才最".split(''), "第三課": "勇教室棵葉克服害怕努完事倒時黑低聲故".split(''), "第四課": "塊圓形芝麻餅咬飯做課洗澡拾整包遊戲剩".split(''), "第五課": "蟲森動物王坐午停座急百科全原從此管種".split(''), "第六課": "自己沙撿垃圾眼膠對牠安吧如該留便減少".split(''), "第七課": "等兔撞農夫夏剛趕路幸運以耕守夜晚北搖".split(''), "第八課": "角腳渴鹿喝影意卻獅追被枝掙脫速度直救".split(''), "第九課": "赤國熱宮涼踩毯暖馬壞難定更隨主法於舒".split(''), "第十課": "群靜抬非趣近堆棉遠景忽聽揮慢依捨放假".split(''), "第十一課": "湯今至妹升陽因期盯米團粉南黃真呵接牛".split(''), "第十二課": "野本模型蜜蜂蝴蝶飛活圖筆料湖調迷逛兒".split('')
+                    },
+                    "下學期": {
+                        "第一課": "情候翠溜滑傳深泳淚火奔怒拋潔舞各同受".split(''), "第二課": "敢超弟院正破所伸點重石消失合掉乾淨哥".split(''), "第三課": "綿已經輸鼓取越竟飄抓啦喊踢結變讓終冷".split(''), "第四課": "珠微醒甲瓢腰香掛閃晶串項鍊仙禮探幫姐".split(''), "第五課": "病睛份牽步段毛晃籃亭忍祕耳聞味浪寶清".split(''), "第六課": "封信親貴洋蝦植量汙染使決具資源費康復".split(''), "第七課": "傘烏暗爺字謎語屋枴杖滴答叩嘻哈落街案".split(''), "第八課": "丁公每認比客相興照皮摘立位新它欣賞妙".split(''), "第九課": "排介紹其賣帽蛋糕扶買休息拿精采希望讀".split(''), "第十課": "銀女願摸品指桌椅食年幼純慌並切狀明而".split(''), "第十一課": "敗操旁脖瞇密件特別唱歌練習彈琴講論颳".split(''), "第十二課": "牆壁窗床鋪錯輪搬冰且交往刻顆鮮汁晨由".split('')
+                    }
+                },
+                "三年級": {
+                    "上學期": {
+                        "第一課": "泥化雀輕羽衣脆髮處旅行平男朗足".split(''), "第二課": "廊訂班級約紛持記錄聊言烈些提愁".split(''), "第三課": "短鐘鬼鬧準朝蹈表暢無總響忘盡責".split(''), "第四課": "指夕賽緊店逗轉露業專勝利悅乖溫".split(''), "第五課": "龍沖菱兄吐歪防警鈴注員傷死諒脾".split(''), "第六課": "幕杯撞流溼透雙胸負慌逃辦題灰剪".split(''), "第七課": "背斑皺懂凡梳夾藏捏摺仔藝術雖創".split(''), "第八課": "魔圍巾視框誤愉數桶刀曾機解鏡齊".split(''), "第九課": "醫穿袍戴筒啄備幹敲毒體淘蘋般藥".split(''), "第十課": "極熊雪腦實根反射膚豬呆印象憶滾".split(''), "第十一課": "額虎貓臺灣獨萬祖蛙捉類占雞肉威".split(''), "第十二課": "昆攻擊演保命翅敵周竹節逼技退屁".split('')
+                    },
+                    "下學期": {
+                        "第一課": "撐首符膀鼻環搗亂恐尖嘴吼".split(''), "第二課": "鐵碗另彎鉤推羨慕娃捲躺裙擺參容".split(''), "第三課": "炎玉凍薄暑品籽晒摸刺器袋綁搓糖".split(''), "第四課": "名丞曹楊修智應官府差思報闊酪驚".split(''), "第五課": "鞠躬弄文厲鬥千普睜閉錢偏察偷胡".split(''), "第六課": "村猴抖造助展簧摔巨引觀咦松鼠混".split(''), "第七課": "盤擠燦爛鹽耙攪抹塔棋幢堂雕霞霄".split(''), "第八課": "叔潛島浮珊瑚船航母丑寬岸郵寄底".split(''), "第九課": "峽隧古窄磚拱騎樓燈籠治示施獎傻".split(''), "第十課": "鹹之川蒸降令凝刷岩將或雜質積累".split(''), "第十一課": "枯孤零義柴代適洞築巢菇腐沉斷僅".split(''), "第十二課": "淋遮易側吞旗砂砌館建華社區擋商".split('')
+                    }
+                },
+                "四年級": {
+                    "上學期": {
+                        "第一課": "戶漫季素嫩繁墨姿簇週淡穫迎幅伴".split(''), "第二課": "汽煮骨粥燙換即菜齒餐矯餓彷彿濃".split(''), "第三課": "蓮式士拆民志酸辣存靠獲態與支未".split(''), "第四課": "淺搧針縫嶼峰領拂頑奏曲溪聆翻".split(''), "第五課": "困舉挑戰爭佩斤紀震竭棄程捐驕傲".split(''), "第六課": "尺亞洲跨鋼護層鈔仍標融仰內俯煙".split(''), "第七課": "育晴陶目芒返劇斗索禁渡念麵統值".split(''), "第八課": "陣披嚇眶乘龐絲板辮踮挺散里".split(''), "第九課": "促振碎者偶褐巧塑凶繞衝雷牌豐擾".split(''), "第十課": "妞郎丈哄眾羞強嫁架初丟既轎隊伍".split(''), "第十一課": "婆頰陰血哀嘗蓆栗橫蟹缸漆黏痛拚".split(''), "第十二課": "貧妻茫算祈繼續宜耐離傍隱託納漸".split('')
+                    },
+                    "下學期": {
+                        "第一課": "慶懷祥儀序毫挨吉潮炸旺爆梭徵揚".split(''), "第二課": "驗拳谷扮勢芳則搭配達製效兵優需".split(''), "第三課": "甩褲童贏識族尤勵飾甚顧慮肯邀豪".split(''), "第四課": "蛹蟻移蛻煉絕曉殼奮晾翩".split(''), "第五課": "健肢激蹦父扎弓異喪豚嘆執限蹟".split(''), "第六課": "裂通付關糊坦危吊壯膽腿軟扛晰懼".split(''), "第七課": "瓣絹束莖政議致橙昏凋憂雅茶跪誠".split(''), "第八課": "吵歲慰制必須煤瑩養替疼箱撒嬌善".split(''), "第九課": "泊拔澈湛夢幻永登踏填喚折浹喘隔".split(''), "第十課": "慧燃誕啟境考材攜聯絡彼網計鍵".split(''), "第十一課": "譜欄煎廚尋靈縮組匠蔭悠構集改".split(''), "第十二課": "巫衰判旱導災疊陷弱端魂聚順寧詳".split('')
+                    }
+                },
+                "五年級": {
+                    "上學期": {
+                        "第一課": "灘某邁拖疲擁灌倦恩遇擦痕賠償焦謹慎較".split(''), "第二課": "傅釘延遞富穩按熟確掃務讚碑績障率涵預".split(''), "第三課": "評性似卷楚綵橡塗拼眉秀妒忌屏惜慈慚愧".split(''), "第四課": "乳渲臭滲漿泉產囪列羅耀螢眩係漲殊呈貌".split(''), "第五課": "駛陡峭蕾崖躍凹凸坑斧雄偉臨縱稻澄曳醉".split(''), "第六課": "綻暇螃乎召溝緩蹲腹浸陸殖愈悲顯阻孵歷".split(''), "第七課": "設弧杆棟磁鱗薑霜爪聖際瞪繪玻璃遺投堅".split(''), "第八課": "鄉撲螺鮭葵稠旋律麥噓硬扁抗筋椒蒜漢蓋".split(''), "第九課": "股藉訪購票售協譯局亡款挖賺鄰幣夠基諸".split(''), "第十課": "閒罵究營擔彆扭規勸仇討鍋繫互誼畢訊磊".split(''), "第十一課": "瀑垂財炫黯錶衛鬍盈逝貨司禱帝訝恍悟昂".split(''), "第十二課": "鳴澗桂幽繚詩描煩敏銳城辭猿啼舟赦歸箭".split('')
+                    },
+                    "下學期": {
+                        "第一課": "廳盞灑壺菊閱附眸戀飲氛闔籤溶咖啡券粹".split(''), "第二課": "席徐掌映冠軍逆盲扇遭盆階鑽轟隆途鑑繽".split(''), "第三課": "霧吻株芭紫橘趴駐巡闖嚴庫澀餘瞥狂罩歉".split(''), "第四課": "闆販攤賊冤枉辨惡武嫌疑押審罰沾貪饒謀".split(''), "第五課": "俗良寒燎瓦焚鬆默批啞增禍逞舌鋒若距倘".split(''), "第六課": "版姨勤儉繩廢攔蔬稱市慣鞋馨喻缺刃窮頓".split(''), "第七課": "徑渾痱魁梧眠枚絢湊癢任何概爾".split(''), "第八課": "盒瞌癟嚼剎礦澆螞怯孫喂遲穴聰孝釋塞銅".split(''), "第九課": "謐乍惑搜瀏覽拜磨療癒職證核詢況症裁誇".split(''), "第十課": "絮斜傑滔廣漠燥博織史辰曆址擎狗渺膜佳".split(''), "第十一課": "秦俑皇君陵墓掘葬含栩單煥堪巔盛撼研價".split(''), "第十二課": "瞰埃蘊割編橇潤劑摩號據測礫妥脂裹諺矗".split('')
+                    }
+                },
+                "六年級": {
+                    "上學期": {
+                        "第一課": "爽塵垢鳳頁曝涉霾暈跡".split(''), "第二課": "編舒茂藤蔓掀悉添隙鬆櫃稿顫暮肩絨咂瀉賴".split(''), "第三課": "舍皆緣蓬飧兼樽酒舊醅籬簡陋鎮濾潺笆寂陳".split(''), "第四課": "衫肌沸騰兀唯勺吶握抵置頒屬榮搞黝襯惹摟".split(''), "第五課": "載益副監噪避迅滅援燒液蝕觸承陌攝檔撈註".split(''), "第六課": "艇劃荒垠宇宙朽栽誌系訓械艙駕凌隕奪億征".split(''), "第七課": "勞抉擇跆抽叢履蹣跚灶搔壤苞芽衡維犧牲".split(''), "第八課": "怨艾枕臂膝焰熄惱跌鬚剝竄瞬頹熾炭飢裊緒".split(''), "第九課": "召懸寡勃棍糧顛簸獻艘鎖策否欠江瀰倉鞏鼎".split(''), "第十課": "亦傾頃猶墊舀複蕩勾篇鉅靡嘖述鑼俐詫莫".split(''), "第十一課": "斥肅遍玄痘腫敷央瞞庭徽袖擤涕鎂泛枇杷".split(''), "第十二課": "拮据抄躡仿昨辯憊熬瘦咳徒懊悔啜泣吁撫酣".split('')
+                    },
+                    "下學期": {
+                        "第一課": "矛盾娛帥跤厚供諄誨竅嘯叮嚀廟尿煞霎疤臊".split(''), "第二課": "獵尚括糞寮狩迫脅殺遵骸窩杉翼奄黎喉嚨吟".split(''), "第三課": "梁氏詣乃梅曰禽姓尊選軼膾炙典寓邏輯例捷".split(''), "第四課": "蜿蜒荊棘嚮逐伐域楷憾岔契遐邇奠屹沮餒豫".split(''), "第五課": "畔巒鰭韌鞭蒼恰倚胖搶頸勁洶湧湍猛濺".split(''), "第六課": "賓紐匯遙赴竊查葡萄忐忑按愚蠢犯憤恨涯汰".split(''), "第七課": "扉狹寞疏潑憐循矩稔蝸兢攀繭懇敦咀殷彌".split(''), "第八課": "權糾德諱凰驪伏邋遢拘遜冊摯厭濤迴盪囑".split(''), "第九課": "蔚忠夥檻蒲曠綺誦".split('')
+                    }
+                }
+            },
+            "康軒": {
+                "一年級": {
+                    "上學期": {
+                        "第一課": "拍手左右你他也上下".split(''), "第二課": "這是誰的我分好了啊多個".split(''), "第三課": "秋千和玩陪高山到大海朋友們起".split(''), "第四課": "子小課兩人拉看找隻青蛙開心".split(''), "第五課": "比門裡外有什麼不同早晚王主又".split(''), "第六課": "路長白花紅走在向說朵從頭那".split('')
+                    }, 
+                    "下學期": {
+                        "第一課": "要靜天空雲水蟲鳥草先完再去".split(''), "第二課": "園聽沒正唱著輕快歌出新芽聞身香呢".split(''), "第三課": "媽音樂會始來重短陣過後吃菜就桌真".split(''), "第四課": "鞋回家把脫爸靠見像船港口享受溫暖".split(''), "第五課": "種問怎做它才需於澆陽光放院公話伴".split(''), "第六課": "奶跟班床弟她酒拿卡片給寫喜歡您都".split(''), "第七課": "作夢躺自己變成棉糖黑鵝得更漂亮".split(''), "第八課": "妹雨雙穿滴遊戲顆珍珠落面魚缸金游".split(''), "第九課": "彩虹太國掃除洗淨馬低刷樹葉很認送".split(''), "第十課": "地化趣線風箏升神奇跑跳笑每件事情".split(''), "第十一課": "生日今記時知道嗎學收張祝福第次謝".split(''), "第十二課": "想燈前點半清楚停休息兒吧幫加油慢".split('')
+                    }
+                },
+                "二年級": {
+                    "上學期": {
+                        "第一課": "年希望坐位本淡書老師以為故用力只現還".split(''), "第二課": "全蛋煎圓番茄切輪司夾吐中方城堡接畫臉".split(''), "第三課": "巷叔貓屋捧蝴蝶忙娶娘黃筆打扮樣越美麗".split(''), "第四課": "運動飄熱鬧舞哇往容步汗腳協聲河氣最可".split(''), "第五課": "竹籃鄉南暑假帶等跨划吹邊叫原近捕活識".split(''), "第六課": "鎮餅節因此進排遠色愛月乾甜客買親如意".split(''), "第七課": "衣胖針簡單聰明臣敢東西直棒街滿眼哪思".split(''), "第八課": "渴烏喝瓶法森林物旅行午裝許石難忘哈但".split(''), "第九課": "象操粗腿柱砍幾部搖沖首牽沉少沿然紀竟".split(''), "第十課": "雪梨夜卻冷冬臺季相反煙火待雖春貨期飯".split(''), "第十一課": "皮具飛者洋寒北嘴伸飽沙急服站翅膀充念".split(''), "第十二課": "灰涼牠鼓絡欣發居冒冰圍咪幸團聚愉鍋妙".split('')
+                    }, 
+                    "下學期": {
+                        "第一課": "顏池塘藍田洞綠蜜蜂窩粉桃興處景".split(''), "第二課": "裳驚所躲房間討論指裙而且紫將工合貼候".split(''), "第三課": "座對微表各突強被綻特舌賞果定互換共漸".split(''), "第四課": "散芒透暗照掛角揚星閃晶當睡悄常旁臂永".split(''), "第五課": "剛品爺採蕉軍告訴辛苦流堅固安寶貝幅管".split(''), "第六課": "教室棵及終立刻抱並猜文借枝鉛校車哥牛".split(''), "第七課": "久條祕兔其猴病探體惜無辦之請鼻吸模度".split(''), "第八課": "狗雞經怪羊鴨信錯睛仔細能消傳嚇忍住顧".split(''), "第九課": "良孩錢醒尾巴村貪皇帝派抓銀准島元波浪".split(''), "第十課": "熊朝踮尖木架些足蹈轉趕耳啄袋鼠摸讀琅".split(''), "第十一課": "圖館參題士講甲形志約數迎交令世界險庫".split(''), "第十二課": "巨累髮根牆狂呼差睜緊餓百食桶倒量底".split('')
+                    }
+                },
+                "三年級": {
+                    "上學期": {
+                        "第一課": "字舟灑載讓愁嘆忌妒訣似練習".split(''), "第二課": "名窗戶板答案專穫已傘喊章詞語".split(''), "第三課": "繞由迷失岸撞扶急店機料實留觀".split(''), "第四課": "露懷居準射刺痛使毒欺負感遇危".split(''), "第五課": "朝努總段利害整該紙李貴必通場".split(''), "第六課": "女非關澡怕應平毛肚蓋摸柔揉副".split(''), "第七課": "統商阿婆鐵硬愈嚼蒼坡憶夕盪網".split(''), "第八課": "育史型功敗守護勇兵土附瞭頂標".split(''), "第九課": "溼族別捕式造層竹植或釣智慧態".split(''), "第十課": "狐里兄密入呀踢棄酸鴉肉塊計壯".split(''), "第十一課": "悅拜訪免離漫盼枯鑽恍悟拆盛隨".split(''), "第十二課": "障漠綿央男複疑算歲帽退吞蛇訝".split('')
+                    }, 
+                    "下學期": {
+                        "第一課": "願晨苗徐嫩築巢虔誠爛杜鮮耀翔".split(''), "第二課": "披紗順垂股涼覺舒味軟踩陷連摺".split(''), "第三課": "髮鏡架拾區吵麻腦電展術助製椅".split(''), "第四課": "匠祖宮惱便解斧割鋒速善察考尺".split(''), "第五課": "市倫決糾紛律改挖設議員付費建".split(''), "第六課": "慶描目程結資影周例產券包類技".split(''), "第七課": "桐初夏腰取抬梢禮肩掌瓣鋪童染".split(''), "第八課": "野柳質岬趴仙列潤岩菇豆雕塑鬼".split(''), "第九課": "灣冰爬陸肺膚黏液保持敵縫伐球".split(''), "第十課": "漁夫婦拖求恩報盆值寬暴聊隆破".split(''), "第十一課": "鹿幕虎布夠損威餐填理胃撲槍逃".split(''), "第十二課": "跌陡民措編謠提伯萬糟糕唉救毫".split('')
+                    }
+                },
+                "四年級": {
+                    "上學期": {
+                        "第一課": "泳串般姿溜耳鷹滑遨緩陀螺轉躍煩".split(''), "第二課": "招湯拋糧姐爭警偷則繩依捨束暫幸".split(''), "第三課": "社邀與遙投熟巧彈曾揮彼秒喧優弧".split(''), "第四課": "偕醫命奉獻療衛藥治翻嶺捐宿堂濃".split(''), "第五課": "凱勒業勵寧視注憑蓓蕾何毯適繽盡".split(''), "第六課": "秀稱朗登穆瑪峰母酷磨攀氧訓谷響".split(''), "第七課": "薄烙沾咖哩印甩材醬義麵郁壽醋未".split(''), "第八課": "臨樓頸代濟阻尼器震京晴塔訊吉橋".split(''), "第九課": "佛泰廟華尚逛埃羅勢窪堤防潮鬱划".split(''), "第十課": "幻旋扁瞬驗牙芝盜邁困龐搓榮富遍".split(''), "第十一課": "背錶掉深鎖鑰匙汁示迫袋哭盒扇遲".split(''), "第十二課": "妻耐革賣倍謎鐘敲靈鎚嘖足蹈蹦內".split('')
+                    }, 
+                    "下學期": {
+                        "第一課": "潔環境甚至懶梳髒臭雜調叢暢格言".split(''), "第二課": "川缺窮繼研既租備缽緣達慚愧慮絆".split(''), "第三課": "啟宣選勤健厲蝸寸駱駝皺眉艘艇拭".split(''), "第四課": "稻米粒蘿蔔漿蒸鹹財粿艾康粽推陳".split(''), "第五課": "籍繪版介峽玉泣敏癢麥封淺查酵讚".split(''), "第六課": "插拌磚昂繁葫蘆彎狹窄喻曉井芬芳".split(''), "第七課": "跡移搭輸鍵盤饑荒配均遷致惡攜眨".split(''), "第八課": "眾領獨厚蹼趾膜構潛易壁舉究肢絕".split(''), "第九課": "僅號姆斯仍津嘗試測署億翁嚮引催".split(''), "第十課": "豪忽瞧灘苔滾禁際廣丈災旱耗遺憾".split(''), "第十一課": "皎瘦嫦娥搗吳霜映勾浮盞否舊淚孤".split(''), "第十二課": "乖筋斗箍喚掀修咒橘擋掏齊聖砰壓".split('')
+                    }
+                },
+                "五年級": {
+                    "上學期": {
+                        "第一課": "蚊帳洲瘧疾死叮存募集寄贈獎狀藏誌基赴".split(''), "第二課": "德乎血攝颱錄哀巒縱臍禍殘檳榔降鏟汙斷".split(''), "第三課": "峭勁聳飢隱扯銳箭韌虯鬚茂止蔓藉豐挫折".split(''), "第四課": "恆澄穗養源藝樸堆撿巾痠素尊嚴勞怨慷慨滋".split(''), "第五課": "譽務聯核申局松註冊企毅歷英銷售勝霸項".split(''), "第六課": "娛汽哨典框劇父責判鳴穎獲佳膩效隊益貌官增".split(''), "第七課": "逆穩憐競抗逸鄰脈絡緻弱噴嚏織碌盎膽圈疲".split(''), "第八課": "坦性恐怖組占播控制傷攻擊權脅復武撼懼".split(''), "第九課": "維戰崎嶇拳癌症銅牌屢減予幼椰即腐衝鍛鍊".split(''), "第十課": "唐恬罷暮掩柴扉歸畢陋傍確閒詠幽眠職吟曠".split(''), "第十一課": "駭疤痕罐咚碰傾寮營殺崇置奄翼祈禱吼喉嚨".split(''), "第十二課": "烈暈昏艙途捲喪獸渾擱礁筏塌捏燒臼烤爐欲".split('')
+                    }, 
+                    "下學期": {
+                        "第一課": "簽遞傻瓜若續痺患握艱博聆埋稿雷擔談懸符".split(''), "第二課": "匹怒廷妥諫閉覷犯罪仁政斥蒙羞懂委婉勸".split(''), "第三課": "輛姍抵迅返率梭隼較贏逐遭評普價承搏".split(''), "第四課": "診繃緒疫篩偉雄補驟菊罩塵槌餘撥廓拼湊骨".split(''), "第五課": "盈浸稀儲寵寂螢彷彿悉賦龍冠鳳紋飾閱激湧".split(''), "第六課": "份睹杯奏盯燦魔嗓啞咳促喘吁伏唷須憂詮魅".split(''), "第七課": "淵凡擅亦橫側廬江寺霧瀰延含哲謂".split(''), "第八課": "珊瑚積噸垃圾循菌鉤鏈孔倖鯨據宜估廢踐殼".split(''), "第九課": "涵葵鯊豚抹汐譟鏽錨牧窺筒琉璃凸襯托證玻".split(''), "第十課": "蹟蕩吶洪誕沼澤豹栩跺葦堪洶鵡狼雅挑剔".split(''), "第十一課": "婪嚎群抖疼魂規違駕屑瀑瀉燃噬籠焰霆俯啄".split(''), "第十二課": "穀亡授臟誤眩燥咀嗚犧牲赭鞭檢藤摘佑".split('')
+                    }
+                },
+                "六年級": {
+                    "上學期": {
+                        "第一課": "級軸奪屈偏搬恨抑拒尷尬悔拱距默鬥扭猛愣".split(''), "第二課": "粥縷碗綢繆毋掘纏縛瓦缶蔬饈腹惠勿凡預悲".split(''), "第三課": "揭卓培裁瑣仲耕賺穎惋欠驕傲昨耘隔茁".split(''), "第四課": "鼎擠颳廚淋晒覆筍醃攪炸瑩饗宴彰煮豬".split(''), "第五課": "削沫茶嗅按舍熬砂混焦舀勺判熄騰啜淌沛舔".split(''), "第六課": "歐榜嫁烹薯末勁稠遂添含脂鹽呈慣蹈徜徉".split(''), "第七課": "仰緬甸踝絨濺襬弄恣批徑謹恰乏皆嗤嗯".split(''), "第八課": "隙竄旨悠寓鷸狡窟猾騙偽誇辨謊諷惕察蔽虛".split(''), "第九課": "亭支誘縣懿魏旗幟崗姓倘僮薰撤諸葛慎丞".split(''), "第十課": "耶郊慈祥劈啪零厭倦辯私貧係趁稍烘衷鋼".split(''), "第十一課": "楓恢潑莓廳額灌醉釀替諒脣奔乞某煥橇鈴迴".split(''), "第十二課": "異頰蓬勃逛庭肅薔薇瀰刮括螞蟻儘".split('')
+                    }, 
+                    "下學期": {
+                        "第一課": "嶼獨馳輾櫛鱗幣莊瀕撒掠覓紳濛亢凌岌".split(''), "第二課": "址屏秘魯璀璨愜振氛序澎湃砌梯玄拴盎眸杏".split(''), "第三課": "萊瑞霍茅唯爆供府購碳騎駛箱嬉乒乓鬆欄".split(''), "第四課": "郭征茲蕭澈辭臥蹤逢抒泊暉摯誼".split(''), "第五課": "蚵嬸攏柄笨拙疲憊鈔剖棚裹樁巡甦豎媒沸宛".split(''), "第六課": "碧疏凰株巔戀蔭紡緯纖裊袖鋁廠孜猶陰逝斑".split(''), "第七課": "斜閣匱攤冥篷徒籌埡脈紮窸窣誦宇宙浩瀚".split(''), "第八課": "瞻愚汲庶鍥垮嶄輩赴構諺羹坪斤貫拓".split(''), "第九課": "恭份荊棘俗窘溝闖涯曙帆槳".split('')
+                    }
+                }
+            },
+            "翰林": {
+                "一年級": {
+                    "上學期": {
+                        "第一課": "起走你在左我右和向前".split(''), "第二課": "大風吹們來玩不停的跑".split(''), "第三課": "火車山洞個又出小堆開心".split(''), "第四課": "請問草天有多高星少太了水去".split(''), "第五課": "彩上好想爬看沒棉花下泡池".split(''), "第六課": "秋千子空說早田是誰陪他".split(''), "第七課": "回音到谷叫人嗎也笑哈".split('')
+                    },
+                    "下學期": {
+                        "第一課": "春裡綠美呀媽弟坐還路著氣暖就".split(''), "第二課": "雨唱歌過河輕快樂街興魚朋友招手".split(''), "第三課": "涼地真朵拍照粉紅色衣服妹像會動帶給".split(''), "第四課": "送什呢生日要爸姐束做張卡片畫寫話".split(''), "第五課": "窗外麻雀找字但課才可以急跳先再".split(''), "第六課": "毛陽光兒站中游青幫忙面葉船拉推".split(''), "第七課": "借筆跟她把拿很都每家今自己背書包".split(''), "第八課": "兩教室見桌等意思忍住忽然啊忘用吧".split(''), "第九課": "情杖時受傷疼直步健康覺得溫雙".split(''), "第十課": "棵樹打雷土抖害怕長咬羊吃勇敢這".split(''), "第十一課": "鉛皮常錯久哭加油試後正漂亮進需學".split(''), "第十二課": "故事期全班記麼能決定狼間完段物同".split('')
+                    }
+                },
+                "二年級": {
+                    "上學期": {
+                        "第一課": "候颳冷躲閃電難烏雲密布盆充滿放晴現虹".split(''), "第二課": "老師新希望卻使緊因為知道怎消失習最掛".split(''), "第三課": "國王喜歡穿只件點改領越設計發方法分享".split(''), "第四課": "呱聞聲猜蛙別靠近抓如果乖腦袋瓜證明頂".split(''), "第五課": "沙灘海邊退遠螃蟹愛注夕腳丫橫留印挖麗".split(''), "第六課": "月奶晚飯散屋竹林頭溪旁暗眼睛那聚成顆".split(''), "第七課": "樣食郊活奇筒香味便當盒客清節保平安南".split(''), "第八課": "介圓形白紙米變軟搶材蝦線各種菜接聽更".split(''), "第九課": "黃沖澡蘿蔔哪粒熱浴蒸胖名苔蛋蔬通細淡".split(''), "第十課": "減表讀認識謎答搖百嘴哥數題趕突異口對".split(''), "第十一課": "怪門扇立刻閒馬闖耳主播報力竟巴東西底".split(''), "第十二課": "念曲項浮掌撥波詩作首指伸脖身體隻倒肚".split('')
+                    },
+                    "下學期": {
+                        "第一課": "旅行妙公園針尖狗士貓探險黑傘由哇世界".split(''), "第二課": "滴躺次落荷珍珠第被轉甩浪救植提漠令及".split(''), "第三課": "紫北悄擔翅膀讓溜滑梯碰遇鳥終於木些伴".split(''), "第四課": "場農夫渴稻喝飽洗蚯蚓扭尾泥蝌蚪努爺剛".split(''), "第五課": "容丟負責收漸臉雖換工總親切慢利合式露".split(''), "第六課": "從臺夠昨球捧腹告訴整廁所踢足比校信祝".split(''), "第七課": "調盤配藍顏魔料幾已經趣呵將混橙棒神".split(''), "第八課": "男孩靜晨傳雞吵雜女窩根羽啄母求助凡".split(''), "第九課": "歲燈賣非貴買燒壞功費絲敗實驗呼良持宜".split(''), "第十課": "醜鴨其特抱破碗煩雪餓縮孤單掉淚鵝飛迎".split(''), "第十一課": "蜘蛛鴿裂痕拜託寶貝處補內石算吐顧離".split(''), "第十二課": "玉兔搗藥姑娘養仙重鬧桂砍嚇棍操夜運".split('')
+                    }
+                },
+                "三年級": {
+                    "上學期": {
+                        "第一課": "待牠吞寸碌奔斑實彈樂它短悲傷永".split(''), "第二課": "週休假連業午並提醒拖蜜桃嘟嘴房".split(''), "第三課": "統計票角板本況因及文具理此準備".split(''), "第四課": "古懂居群省費商量窮桶怒亂增胡摸".split(''), "第五課": "貼年級使何隨隔睡效序而且排箱條".split(''), "第六課": "黏木製部混斷解機器另治枝桿擦削".split(''), "第七課": "鹹蔚航乘橇坡野滾閉深吸欣賞景瞞".split(''), "第八課": "寄蟹灘螃堆杯類撿瓶蓋淨志品應".split(''), "第九課": "挑交導叢喊投繼續岸淺捲沿踩座般".split(''), "第十課": "婚禮盪服代福結束酒敬舞習俗惜互".split(''), "第十一課": "除嬸煙炮附店息修廠壞檢查擺幸零".split(''), "第十二課": "團窗剩默匆視訊叔逗堂娃壓錢透握".split('')
+                    },
+                    "下學期": {
+                        "第一課": "拔牆壁往究父練肯願即專仍牢嚇勁".split(''), "第二課": "差擋祕藏管橫埋模感奮示範苦讚微".split(''), "第三課": "演姿病引克肢夾琴雙骨敲疼痛戰環".split(''), "第四課": "廣松妳染媚市映躍茫暮祥耀金泰銀".split(''), "第五課": "茶鄉城參烏龍程傅摘晒酵乾燥嘆驗".split(''), "第六課": "之境懷訪目丘象灰許紋濃密漿驚集".split(''), "第七課": "漬疑惑產適益腸健康裝封厲騙承貪".split(''), "第八課": "護者展潑談秩倍疾徐抬胸或某扮型".split(''), "第九課": "湯筷慣較圍餐套煮端免取垃圾化舉".split(''), "第十課": "員幕無際幅帽圖蛇瞪呆揮既胃瞧豎".split(''), "第十一課": "維肖寺尚困擾邀逼孫追旦相朗布蹤".split(''), "第十二課": "夏聊幻糕跌央鼠咦刺牌后脾令夢兵".split('')
+                    }
+                },
+                "四年級": {
+                    "上學期": {
+                        "第一課": "島唾沫忠衛寒椰隊蕉街灣甜糖童".split(''), "第二課": "泉抹訝牙齒架速彷彿汽區恐陀螺聚".split(''), "第三課": "鏡軌樓與耕耘蔬鼓腮烤柳丁粉網錄".split(''), "第四課": "兄翔鷹論控制命義標良研靈升紀碑".split(''), "第五課": "掛皎凝曾考輪徘徊瑤妝科登循尋案".split(''), "第六課": "館億隕撞擊坑射狀距萬里均騎餅揭".split(''), "第七課": "麵焦揉批爐徵啟禁沾依度滋必".split(''), "第八課": "俠頓江鞋溼柱止措撐概折根脫愣帥".split(''), "第九課": "箭善民爭復祈惱鬥博弓欺惡懶晉盡".split(''), "第十課": "珊瑚礁積存稱株縫隙繽紛捕撈汙藻".split(''), "第十一課": "闊鯊拼虎鯨叼餵嘗鮮籠沉豚鑽纏潮".split(''), "第十二課": "寧譯脣達愉悅章齊載嘉賓辦優籟".split('')
+                    },
+                    "下學期": {
+                        "第一課": "苗雄赳昂巡呷甲喚禾豐季穗燦".split(''), "第二課": "建築致棟囪強覽塔設悶施簾瓢僅碳".split(''), "第三課": "傍橘敏捷朝舍伏蒼翠巨周臨黯溪迴".split(''), "第四課": "艘舟列戴盔召賜饒佑順串激共餘予".split(''), "第五課": "慶褲華披紗袍巾袖鯉庭旗偶未翁".split(''), "第六課": "簇碎彎層鋪漫遍潔桐瞬踮亭芝磨擂".split(''), "第七課": "曉賽弱哀准觸振局反輸討支壘菠勝".split(''), "第八課": "領喘愈噪拚衝猶豫膽插腰贏硬挨罵".split(''), "第九課": "盛劃選途霧舒緩巧透棧捉似眺秀趟".split(''), "第十課": "芭焰擔搧熄獨嫂菩薩丹關椅訣乃聖".split(''), "第十一課": "租蒙瘦肺炎咳醫危嚴藤磚薄賺搬梯".split(''), "第十二課": "閱扶捐烈犧牲踴穫任務鐘響欄".split('')
+                    }
+                },
+                "五年級": {
+                    "上學期": {
+                        "第一課": "堅耐勞元蝟擁繩刷膏遭係充供凸彼協融洽諦".split(''), "第二課": "笛奏簡旋律縈繞梢廊熟悉諧階須絮伍威".split(''), "第三課": "璧歸諸侯挺官軍羞辱懦恥權勢攻君鎮愧荊肝".split(''), "第四課": "筍廳眾據逐棋撲富純寓超炒氛齡技例憶培患".split(''), "第五課": "英采揚媲搜劇螢拯預脈院授犯吔違司潤愕創".split(''), "第六課": "盃缺席塑廢質飲掩焚熔抽紡極複織耗至摩屆".split(''), "第七課": "返寨曠寂茂鳴澗悠乎谷描幽隱貌漆乍添".split(''), "第八課": "葫蘆幼鄰蔓攀莖蜂營蝴蝶翩吱喳灌溉誠盼".split(''), "第九課": "玻璃測棲覓昆誘繡尊慮側褐掀暑圃籬戀捨淋".split(''), "第十課": "銳膩偉格納德洲洋湊陸移評飾髮詞丈銷售臘".split(''), "第十一課": "蒲梳蓬砂螞蟻楓噗炸逃拂狂掃颱溝籃聰擇脆".split(''), "第十二課": "裙煦置髒嘈塵裳咪蹈妻柵闢政府糟皆蹟".split('')
+                    },
+                    "下學期": {
+                        "第一課": "符坎坷澎湃垠限陵北瞭跡仰俯碧漾歷史喻遷".split(''), "第二課": "巒障喧翅膀態翱隧嘩灑綻降掠轟隆震顫覆吟".split(''), "第三課": "廟拾綴若峰杜鵑皇宇宙付簽擅拘厚欲璞屬".split(''), "第四課": "採殘藹爽撼慈驕傲尷尬恢輝甚佩怨悔偏奉私".split(''), "第五課": "派囑咐武肉裕哲悟憐講役末慎瞄錶礙攔阻乞".split(''), "第六課": "瀰暫耍猛索煞肅替否鬼蓆嗅股聯絡簿塗".split(''), "第七課": "縷勸莫堪編禿椏畝鑑渠澈陰遺憾繪竭絕".split(''), "第八課": "媒謂詳泛繁哏詼瀏略刪篇婦頁價擷誤澄謠妨".split(''), "第九課": "疏謹懇誼訓委婉懈刀迥恰勵渾獲敵仗榮劍".split(''), "第十課": "呎鼻廓劑娓邏輯瀑謬露釋黝腕皙臂".split(''), "第十一課": "帳辭督殺侍酬詐匠延幔紮牽吶率抵擋恍丞庫".split(''), "第十二課": "佳避儘茅睿鏟鬍虛呻血疲累檻諒財誓仇宮豁".split('')
+                    }
+                },
+                "六年級": {
+                    "上學期": {
+                        "第一課": "皺晃弄摯蝴蝶蛹翼註儲".split(''), "第二課": "眶固執辯胞胎盼郵暈稚慘憤慨狠憂涕慰寞".split(''), "第三課": "杏婆娑鏗鏘撫壇徒鍊曰矣舊焉亦辨警惕慧".split(''), "第四課": "鰭划奧仿迫蚊膚鋸劃擴液奈構鵰霸翹垂".split(''), "第五課": "施濘躁霎幹典賀遮雋踏穩稀襟仁酥庇栽".split(''), "第六課": "嘲詼僵侃競醜哄判諷丐貶捏吻坦魅".split(''), "第七課": "姨雕拓蕨梅佇冽澤苞錦鄒眨鏽鋼涵銅籍略".split(''), "第八課": "墩塗撇咧攏副羈伙鈔幣喇脹筋儼廂弦矩羨".split(''), "第九課": "鬟涯劈腿倍邁獅丑甘井騰素絢柱吊蘭尤".split(''), "第十課": "莊暢黍郭斜軒桑菊穀曆綿殷勤樸訂".split(''), "第十一課": "蹋愁岩濤洶湧瑣礫豆鹽叨泣頰蟹挽".split(''), "第十二課": "銜割嫁辛販憑鑿傢駁誣監蒂莖粗毫".split('')
+                    },
+                    "下學期": {
+                        "第一課": "遛逛繫陌俐醬咖啡倚貨築恨贈剌豔辣襯托彰購".split(''), "第二課": "疆港摒諺罐驢馱衰盜頤怖嘶啞嗓嚥爪梁喻惦初".split(''), "第三課": "踝絨號濺屈嫌埃縱攝氏逢倨嗤欠陋寡嗯".split(''), "第四課": "戎李劉彙晉軼撰遣辭栩唯濬致纍澀賅敘述".split(''), "第五課": "巷凰葵巔盎梭緯勺晶瑩攪拌剪裁鋁防鈴逝恆恬".split(''), "第六課": "輔仆傾窘貧兼職畢飢刊斤貸捍含歧抑濟績凌妨".split(''), "第七課": "驅衷迭滯崗謂秉俱誕旺鑰匙挫蔽域侷掘釐燃".split(''), "第八課": "駕拈豬蜘蛛詫啼抉苛塌稿湛鍛旨柢茁懵驟".split(''), "第九課": "雛膛芒啾拙懼凶漲鷗嘹滔襲陷阱".split('')
+                    }
+                }
+            }
+        };
+
+        // --- Game State ---
+        let CHARACTER_POOL = [];
+        let originalCharacters = [];
+        let changedCharacters = [];
+        let changedIndex = -1;
+        let replacedCharacter = '';
+        let userClickedIndex = -1;
+        let isShowingOriginal = false;
+        let gameActive = false;
+        let audioContext;
+        let roundTimeoutId = null;
+
+        let totalQuestions = 0;
+        let currentQuestionIndex = 0;
+        let correctAnswersCount = 0;
+
+        // --- Functions ---
+        function initAudio() {
+            if (audioContext) return;
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) { console.error("Web Audio API is not supported."); }
+        }
+        
+        function playSound(type) {
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            if (type === 'error') {
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(150, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.2);
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } else if (type === 'correct') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(880, audioContext.currentTime + 0.15);
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.2);
+            } else if (type === 'complete') {
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.7);
+                oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+                oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+                oscillator.frequency.setValueAtTime(1046.50, audioContext.currentTime + 0.3); // C6
+                oscillator.start();
+                oscillator.stop(audioContext.currentTime + 0.8);
+            }
+        }
+        
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'zh-TW';
+                utterance.rate = 0.9;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+        
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function createCard(char, index, itemCount) {
+            const card = document.createElement('div');
+            card.className = 'card bg-slate-200 rounded-lg flex items-center justify-center cursor-pointer shadow-sm';
+            if (itemCount > 16) card.className += ' text-4xl md:text-5xl';
+            else if (itemCount > 9) card.className += ' text-5xl md:text-6xl';
+            else if (itemCount > 4) card.className += ' text-6xl md:text-7xl';
+            else card.className += ' text-7xl md:text-8xl';
+            card.dataset.index = index;
+            card.textContent = char;
+            return card;
+        }
+
+        function renderBoard(chars, isInteractive) {
+            const itemCount = chars.length;
+            const columns = Math.ceil(Math.sqrt(itemCount));
+            gameBoard.innerHTML = '';
+            gameBoard.className = `grid gap-2 md:gap-3 w-full h-full`;
+            gameBoard.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+            chars.forEach((char, index) => {
+                const card = createCard(char, index, itemCount);
+                if (isInteractive) {
+                    card.addEventListener('click', handleCardClick);
+                } else {
+                    card.classList.remove('cursor-pointer');
+                    card.classList.add('cursor-wait');
+                }
+                gameBoard.appendChild(card);
+            });
+        }
+        
+        function confirmAndUpdateSettings() {
+            const text = vocabInput.value;
+            const rawChars = text.match(/\S/g) || [];
+            const uniqueCharsCount = [...new Set(rawChars)].length;
+
+            if (uniqueCharsCount < 2) {
+                 alert(`請至少輸入 2 個不同的生字！`);
+                 return;
+            }
+
+            const newMax = Math.min(uniqueCharsCount, 25);
+            itemCountInput.max = newMax;
+            itemCountInput.value = newMax; 
+            
+            settingsPanel.classList.remove('opacity-40');
+            countdownInput.disabled = false;
+            itemCountInput.disabled = false;
+            totalQuestionsInput.disabled = false;
+            startBtn.disabled = false;
+            startBtn.classList.remove('cursor-not-allowed');
+
+            vocabInput.disabled = true;
+            confirmVocabBtn.disabled = true;
+            confirmVocabBtn.classList.add('opacity-50');
+            confirmVocabBtn.textContent = '已確認';
+            resetVocabBtn.classList.remove('hidden');
+        }
+
+        function resetVocabInput() {
+            vocabInput.disabled = false;
+            confirmVocabBtn.disabled = false;
+            confirmVocabBtn.classList.remove('opacity-50');
+            confirmVocabBtn.textContent = '確認生字';
+            resetVocabBtn.classList.add('hidden');
+            settingsPanel.classList.add('opacity-40');
+            countdownInput.disabled = true;
+            itemCountInput.disabled = true;
+            totalQuestionsInput.disabled = true;
+            startBtn.disabled = true;
+            startBtn.classList.add('cursor-not-allowed');
+            vocabInput.focus();
+        }
+
+        function startQuiz() {
+            const text = vocabInput.value;
+            const rawChars = text.match(/\S/g) || [];
+            CHARACTER_POOL = [...new Set(rawChars)];
+            
+            let itemCount = parseInt(itemCountInput.value, 10);
+            if (CHARACTER_POOL.length < itemCount || CHARACTER_POOL.length < 2) {
+                alert(`生字數量不足以開始測驗，請重新輸入。`);
+                resetToInitialState();
+                return;
+            }
+            
+            initAudio();
+            totalQuestions = parseInt(totalQuestionsInput.value, 10);
+            if(isNaN(totalQuestions) || totalQuestions < 1) totalQuestions = 5;
+            
+            currentQuestionIndex = 0;
+            correctAnswersCount = 0;
+            
+            setupScreen.classList.add('hidden');
+            resultsScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            nextQuestion();
+        }
+
+        function nextQuestion() {
+            clearTimeout(roundTimeoutId);
+            nextQuestionBtn.classList.add('hidden'); 
+            viewToggleBtn.classList.add('hidden');
+            abortBtn.classList.remove('hidden');
+
+            if (currentQuestionIndex >= totalQuestions) {
+                showResults();
+                return;
+            }
+            currentQuestionIndex++;
+            gameActive = true;
+            changedIndex = -1;
+            progressEl.textContent = `第 ${currentQuestionIndex} / ${totalQuestions} 題`;
+            messageEl.innerHTML = '請記住所有生字...';
+            messageEl.classList.remove('text-red-500', 'text-green-500');
+
+
+            let itemCount = parseInt(itemCountInput.value, 10);
+            if (isNaN(itemCount) || itemCount < 2 || itemCount > 25) itemCount = 9;
+            if (itemCount > CHARACTER_POOL.length) itemCount = CHARACTER_POOL.length;
+
+            const shuffledChars = shuffle([...CHARACTER_POOL]);
+            originalCharacters = shuffledChars.slice(0, itemCount);
+            renderBoard(originalCharacters, false);
+            const countdownTime = parseInt(countdownInput.value, 10) * 1000;
+            roundTimeoutId = setTimeout(prepareToChange, countdownTime);
+        }
+        
+        function prepareToChange() {
+            if (!gameActive) return;
+            overlay.classList.remove('opacity-0', 'pointer-events-none');
+            roundTimeoutId = setTimeout(() => {
+                if (!gameActive) return;
+                changeOneCharacter();
+                overlay.classList.add('opacity-0', 'pointer-events-none');
+            }, 500); 
+        }
+
+        function changeOneCharacter() {
+            messageEl.textContent = '哪一個生字改變了？';
+            const currentChars = [...originalCharacters];
+            changedIndex = Math.floor(Math.random() * currentChars.length);
+            
+            replacedCharacter = currentChars[changedIndex];
+
+            const remainingChars = CHARACTER_POOL.filter(c => !originalCharacters.includes(c));
+            const newChar = remainingChars.length > 0 
+                ? remainingChars[Math.floor(Math.random() * remainingChars.length)]
+                : CHARACTER_POOL.filter(c => c !== currentChars[changedIndex])[0];
+            currentChars[changedIndex] = newChar;
+            changedCharacters = [...currentChars];
+            renderBoard(currentChars, true);
+        }
+
+        function handleCardClick(event) {
+            if (changedIndex === -1) return;
+            const clickedIndex = parseInt(event.currentTarget.dataset.index, 10);
+            userClickedIndex = clickedIndex;
+            const selectedCard = event.currentTarget;
+            const clickedCharacter = selectedCard.textContent;
+            
+            gameBoard.childNodes.forEach(child => child.removeEventListener('click', handleCardClick));
+
+            if (clickedIndex === changedIndex) {
+                speakText(clickedCharacter);
+                correctAnswersCount++;
+                playSound('correct');
+                messageEl.textContent = '答對了！';
+                messageEl.classList.add('text-green-500');
+                selectedCard.style.outline = '4px solid #22c55e'; 
+                roundTimeoutId = setTimeout(nextQuestion, 1500);
+            } else {
+                playSound('error');
+                gameBoard.classList.add('shake');
+                
+                const newChar = changedCharacters[changedIndex];
+                const speechText = `答錯了！正確是${newChar}，原本是${replacedCharacter}`;
+                speakText(speechText);
+                
+                messageEl.classList.remove('text-red-500', 'text-green-500');
+                messageEl.innerHTML = `<span class="text-red-500">答錯了！</span> 正確是「${newChar}」<br class="sm:hidden">，原本是「${replacedCharacter}」`;
+
+                gameBoard.addEventListener('animationend', () => gameBoard.classList.remove('shake'), { once: true });
+                
+                abortBtn.classList.add('hidden');
+                nextQuestionBtn.classList.remove('hidden');
+                viewToggleBtn.classList.remove('hidden');
+                viewToggleBtn.textContent = '查看原圖';
+                isShowingOriginal = false;
+                
+                // Show initial wrong state
+                renderBoard(changedCharacters, false);
+                gameBoard.children[userClickedIndex].style.outline = '4px solid #ef4444';
+                gameBoard.children[changedIndex].classList.add('correct-answer-glow');
+            }
+            // Only reset changedIndex on correct answer. For wrong answers, it's needed by toggleView.
+            if (clickedIndex === changedIndex) {
+                 changedIndex = -1;
+            }
+        }
+
+        function toggleView() {
+            isShowingOriginal = !isShowingOriginal;
+            if (isShowingOriginal) {
+                viewToggleBtn.textContent = '查看變化圖';
+                renderBoard(originalCharacters, false);
+                gameBoard.children[changedIndex].classList.add('original-position-glow');
+            } else {
+                viewToggleBtn.textContent = '查看原圖';
+                renderBoard(changedCharacters, false);
+                gameBoard.children[userClickedIndex].style.outline = '4px solid #ef4444';
+                gameBoard.children[changedIndex].classList.add('correct-answer-glow');
+            }
+        }
+
+        function showResults() {
+            playSound('complete'); // Play completion sound
+            gameScreen.classList.add('hidden');
+            resultsScreen.classList.remove('hidden');
+            const accuracy = totalQuestions > 0 ? (correctAnswersCount / totalQuestions) * 100 : 0;
+            scoreEl.textContent = `${correctAnswersCount} / ${totalQuestions}`;
+            accuracyEl.textContent = `${accuracy.toFixed(0)}%`;
+        }
+
+        function resetToInitialState() {
+            clearTimeout(roundTimeoutId);
+            gameActive = false;
+            resetVocabInput();
+            vocabInput.value = '';
+            resultsScreen.classList.add('hidden');
+            gameScreen.classList.add('hidden');
+            setupScreen.classList.remove('hidden');
+        }
+        
+        // --- Dropdown Population ---
+        function populateSelect(selectElement, options) {
+            selectElement.innerHTML = '';
+            options.forEach(optionText => {
+                const option = document.createElement('option');
+                option.value = optionText;
+                option.textContent = optionText;
+                selectElement.appendChild(option);
+            });
+        }
+
+        function updateGradeSelect() {
+            const selectedPublisher = publisherSelect.value;
+            const grades = Object.keys(vocabData[selectedPublisher]);
+            populateSelect(gradeSelect, grades);
+            updateSemesterSelect();
+        }
+
+        function updateSemesterSelect() {
+            const selectedPublisher = publisherSelect.value;
+            const selectedGrade = gradeSelect.value;
+            const semesters = Object.keys(vocabData[selectedPublisher][selectedGrade]);
+            populateSelect(semesterSelect, semesters);
+            updateLessonSelect();
+        }
+
+        function updateLessonSelect() {
+            const selectedPublisher = publisherSelect.value;
+            const selectedGrade = gradeSelect.value;
+            const selectedSemester = semesterSelect.value;
+            if (vocabData[selectedPublisher]?.[selectedGrade]?.[selectedSemester]) {
+                const lessons = Object.keys(vocabData[selectedPublisher][selectedGrade][selectedSemester]);
+                populateSelect(lessonSelect, lessons);
+            } else {
+                 populateSelect(lessonSelect, []);
+            }
+        }
+
+        function loadSelectedLesson() {
+            const publisher = publisherSelect.value;
+            const grade = gradeSelect.value;
+            const semester = semesterSelect.value;
+            const lesson = lessonSelect.value;
+            if (vocabData[publisher]?.[grade]?.[semester]?.[lesson]) {
+                const words = vocabData[publisher][grade][semester][lesson];
+                vocabInput.value = words.join(' ');
+
+                const uniqueCharsCount = [...new Set(words)].length;
+                const newMax = Math.min(uniqueCharsCount, 25);
+                itemCountInput.max = newMax;
+                itemCountInput.value = newMax;
+            } else {
+                vocabInput.value = '';
+            }
+        }
+
+        // --- Event Listeners ---
+        publisherSelect.addEventListener('change', updateGradeSelect);
+        gradeSelect.addEventListener('change', updateSemesterSelect);
+        semesterSelect.addEventListener('change', updateLessonSelect);
+        loadLessonBtn.addEventListener('click', loadSelectedLesson);
+
+        confirmVocabBtn.addEventListener('click', confirmAndUpdateSettings);
+        resetVocabBtn.addEventListener('click', resetVocabInput);
+        startBtn.addEventListener('click', startQuiz);
+        restartBtn.addEventListener('click', resetToInitialState);
+        abortBtn.addEventListener('click', resetToInitialState);
+        nextQuestionBtn.addEventListener('click', nextQuestion);
+        viewToggleBtn.addEventListener('click', toggleView);
+
+        itemCountInput.addEventListener('input', () => {
+            const max = parseInt(itemCountInput.max);
+            const value = parseInt(itemCountInput.value);
+            if (!isNaN(value) && !isNaN(max) && value > max) {
+                itemCountInput.value = max;
+            }
+        });
+        
+        // --- Initial Setup ---
+        populateSelect(publisherSelect, Object.keys(vocabData));
+        updateGradeSelect();
+
+    </script>
+</body>
+</html>
